@@ -1,7 +1,7 @@
 Source: libgbinder-radio
 Priority: optional
 Maintainer: Danct12 <danct12@disroot.org>
-Build-Depends: debhelper (>=9), libgbinder-dev (>= 1.0.9)
+Build-Depends: debhelper (>=9), libglib2.0-dev, libglibutil-dev, libgbinder-dev (>= 1.0.9)
 Standards-Version: 3.9.6
 
 Package: libgbinder-radio-dev
