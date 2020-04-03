@@ -1,3 +1,9 @@
+libgbinder-radio (1.0.8+ubports1) xenial; urgency=medium
+
+  * Import into UBPorts
+
+ -- TheKit <thekit@disroot.org>  Fri, 03 Apr 2020 03:24:38 +0200
+
 libgbinder-radio (1.0.8) unstable; urgency=medium
 
   * Added RADIO_DEVICE_STATE enum.
