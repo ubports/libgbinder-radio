@@ -51,6 +51,12 @@ radio_req_name(
     RADIO_CALL_1_0(RADIO_REQ_)
     RADIO_CALL_1_1(RADIO_REQ_)
 #undef RADIO_REQ_
+    case RADIO_REQ_START_NETWORK_SCAN_1_2:                 return "startNetworkScan_1_2";
+    case RADIO_REQ_SET_INDICATION_FILTER_1_2:              return "setIndicationFilter_1_2";
+    case RADIO_REQ_SET_SIGNAL_STRENGTH_REPORTING_CRITERIA: return "setSignalStrengthReportingCriteria";
+    case RADIO_REQ_SET_LINK_CAPACITY_REPORTING_CRITERIA:   return "setLinkCapacityReportingCriteria";
+    case RADIO_REQ_SETUP_DATA_CALL_1_2:                    return "setupDataCall_1_2";
+    case RADIO_REQ_DEACTIVATE_DATA_CALL_1_2:               return "deactivateDataCall_1_2";
     case RADIO_REQ_ANY:
         break;
     }
@@ -68,6 +74,14 @@ radio_resp_name(
     RADIO_CALL_1_0(RADIO_RESP_)
     RADIO_CALL_1_1(RADIO_RESP_)
 #undef RADIO_RESP_
+    case RADIO_RESP_GET_CELL_INFO_LIST_1_2: return "getCellInfoListResponse_1_2";
+    case RADIO_RESP_GET_ICC_CARD_STATUS_1_2: return "getIccCardStatusResponse_1_2";
+    case RADIO_RESP_SET_SIGNAL_STRENGTH_REPORTING_CRITERIA: return "setSignalStrengthReportingCriteriaResponse";
+    case RADIO_RESP_SET_LINK_CAPACITY_REPORTING_CRITERIA: return "setLinkCapacityReportingCriteriaResponse";
+    case RADIO_RESP_GET_CURRENT_CALLS_1_2: return "getCurrentCallsResponse_1_2";
+    case RADIO_RESP_GET_SIGNAL_STRENGTH_1_2: return "getSignalStrengthResponse_1_2";
+    case RADIO_RESP_GET_VOICE_REGISTRATION_STATE_1_2: return "getVoiceRegistrationStateResponse_1_2";
+    case RADIO_RESP_GET_DATA_REGISTRATION_STATE_1_2: return "getDataRegistrationStateResponse_1_2";
     case RADIO_RESP_ANY:
         break;
     }
@@ -83,6 +97,7 @@ radio_ind_name(
     case RADIO_IND_##NAME: return #Name;
     RADIO_EVENT_1_0(RADIO_IND_)
     RADIO_EVENT_1_1(RADIO_IND_)
+    RADIO_EVENT_1_2(RADIO_IND_)
 #undef RADIO_IND_
     case RADIO_IND_ANY:
         break;
@@ -98,10 +113,20 @@ radio_req_resp(
 #define RADIO_REQ_(req,resp,Name,NAME) \
     case RADIO_REQ_##NAME: return RADIO_RESP_##NAME;
     RADIO_CALL_1_0(RADIO_REQ_)
+    RADIO_CALL_1_1(RADIO_REQ_)
 #undef RADIO_REQ_
-    default:
-        return RADIO_RESP_NONE;
+    case RADIO_REQ_SET_RESPONSE_FUNCTIONS:
+    case RADIO_REQ_RESPONSE_ACKNOWLEDGEMENT:
+    case RADIO_REQ_START_NETWORK_SCAN_1_2:
+    case RADIO_REQ_SET_INDICATION_FILTER_1_2:
+    case RADIO_REQ_SET_SIGNAL_STRENGTH_REPORTING_CRITERIA:
+    case RADIO_REQ_SET_LINK_CAPACITY_REPORTING_CRITERIA:
+    case RADIO_REQ_SETUP_DATA_CALL_1_2:
+    case RADIO_REQ_DEACTIVATE_DATA_CALL_1_2:
+    case RADIO_REQ_ANY:
+       break;
     }
+    return RADIO_RESP_NONE;
 }
 
 /*
