@@ -45,6 +45,15 @@ G_BEGIN_DECLS
 
 typedef struct radio_instance_priv RadioInstancePriv;
 
+typedef enum ril_binder_interface {
+    RIL_BINDER_INTERFACE_1_0,
+    RIL_BINDER_INTERFACE_1_1,
+    RIL_BINDER_INTERFACE_1_2,
+    RIL_BINDER_INTERFACE_COUNT
+} RIL_BINDER_INTERFACE;
+G_STATIC_ASSERT(sizeof(RIL_BINDER_INTERFACE) == 4);
+G_STATIC_ASSERT(RIL_BINDER_INTERFACE_COUNT == 3);
+
 struct radio_instance {
     GObject parent;
     RadioInstancePriv* priv;
@@ -56,6 +65,7 @@ struct radio_instance {
     const char* modem;  /* D-Bus path */
     int slot_index;     /* 0 for SIM1, 1 for SIM2 and so on */
     gboolean enabled;
+    RIL_BINDER_INTERFACE interface_version;
 };
 
 typedef
@@ -232,6 +242,10 @@ radio_instance_remove_handlers(
     RadioInstance* radio,
     gulong* ids,
     int count);
+
+RIL_BINDER_INTERFACE
+radio_instance_get_interface_version(
+    RadioInstance* radio);
 
 #define radio_instance_remove_all_handlers(radio,ids) \
     radio_instance_remove_handlers(radio, ids, G_N_ELEMENTS(ids))
