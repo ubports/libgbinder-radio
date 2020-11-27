@@ -1,3 +1,9 @@
+libgbinder-radio (1.2.2+ubports1) xenial; urgency=medium
+
+  * New upstream release
+
+ -- TheKit <thekit@disroot.org>  Sat, 13 Mar 2021 15:02:06 +0200
+
 libgbinder-radio (1.2.2) unstable; urgency=medium
 
   * Added radio_instance_get_with_version()
