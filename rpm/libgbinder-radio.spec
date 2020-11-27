@@ -1,5 +1,5 @@
 Name: libgbinder-radio
-Version: 1.0.8
+Version: 1.0.11
 Release: 0
 Summary: Binder client library for Android radio interfaces
 Group: Development/Libraries
@@ -31,11 +31,11 @@ This package contains the development library for %{name}.
 %setup -q
 
 %build
-make KEEP_SYMBOLS=1 release pkgconfig
+make LIBDIR=%{_libdir} KEEP_SYMBOLS=1 release pkgconfig
 
 %install
 rm -rf %{buildroot}
-make install-dev DESTDIR=%{buildroot}
+make LIBDIR=%{_libdir} DESTDIR=%{buildroot} install-dev
 
 %post -p /sbin/ldconfig
 
