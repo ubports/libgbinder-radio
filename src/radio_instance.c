@@ -85,6 +85,32 @@ enum radio_instance_signal {
 #define SIGNAL_DEATH_NAME              "radio-instance-death"
 #define SIGNAL_ENABLED_NAME            "radio-instance-enabled"
 
+static const GBinderClientIfaceInfo radio_ifaces[] = {
+    {RADIO_1_2, RADIO_1_2_REQ_LAST },
+    {RADIO_1_1, RADIO_1_1_REQ_LAST },
+    {RADIO_1_0, RADIO_1_0_REQ_LAST }
+};
+G_STATIC_ASSERT
+    (G_N_ELEMENTS(radio_ifaces) == RIL_BINDER_INTERFACE_COUNT);
+
+const char* const indication_ifaces[] = {
+    RADIO_INDICATION_1_2,
+    RADIO_INDICATION_1_1,
+    RADIO_INDICATION_1_0,
+    NULL
+};
+G_STATIC_ASSERT
+    (G_N_ELEMENTS(indication_ifaces) == RIL_BINDER_INTERFACE_COUNT + 1);
+
+const char* const response_ifaces[] = {
+    RADIO_RESPONSE_1_2,
+    RADIO_RESPONSE_1_1,
+    RADIO_RESPONSE_1_0,
+    NULL
+};
+G_STATIC_ASSERT
+    (G_N_ELEMENTS(response_ifaces) == RIL_BINDER_INTERFACE_COUNT + 1);
+
 static guint radio_instance_signals[SIGNAL_COUNT] = { 0 };
 
 static GHashTable* radio_instance_table = NULL;
@@ -160,7 +186,9 @@ radio_instance_indication(
     RadioInstance* self = RADIO_INSTANCE(user_data);
     const char* iface = gbinder_remote_request_interface(req);
 
-    if (!g_strcmp0(iface, RADIO_INDICATION_1_0)) {
+    if (!g_strcmp0(iface, RADIO_INDICATION_1_0) ||
+        !g_strcmp0(iface, RADIO_INDICATION_1_1) ||
+        !g_strcmp0(iface, RADIO_INDICATION_1_2)) {
         GBinderReader reader;
         guint type;
 
@@ -207,7 +235,9 @@ radio_instance_response(
     RadioInstance* self = RADIO_INSTANCE(user_data);
     const char* iface = gbinder_remote_request_interface(req);
 
-    if (!g_strcmp0(iface, RADIO_RESPONSE_1_0)) {
+    if (!g_strcmp0(iface, RADIO_RESPONSE_1_0) ||
+        !g_strcmp0(iface, RADIO_RESPONSE_1_1) ||
+        !g_strcmp0(iface, RADIO_RESPONSE_1_2)) {
         /* All these should be one-way transactions */
         GASSERT(flags & GBINDER_TX_FLAG_ONEWAY);
         if (code == RADIO_RESP_ACKNOWLEDGE_REQUEST) {
@@ -321,6 +351,79 @@ radio_instance_gone(
 }
 
 static
+void
+radio_instance_connect_remote(
+    const char* dev,
+    const char* slot,
+    const char* key,
+    const char* modem,
+    int slot_index,
+    GBinderServiceManager* sm,
+    RadioInstance** self,
+    int iface_num)
+{
+    int status = 0;
+    char* iface = g_strdup_printf("%s%u.%u::IRadio",
+        RADIO_IFACE_PREFIX, 1, iface_num);
+    char* fqname = g_strconcat(iface, "/", slot, NULL);
+    GBinderRemoteObject* remote =
+        gbinder_servicemanager_get_service_sync
+        (sm, fqname, &status);
+
+    if (remote) {
+        RadioInstancePriv* priv;
+        GBinderLocalRequest* req;
+        GBinderRemoteReply* reply;
+        GBinderWriter writer;
+
+        GINFO("Connected to %s", fqname);
+        /* get_service returns auto-released reference,
+         * we need to add a reference of our own */
+        gbinder_remote_object_ref(remote);
+
+        (*self) = g_object_new(RADIO_TYPE_INSTANCE, NULL);
+        priv = (*self)->priv;
+        (*self)->slot = priv->slot = g_strdup(slot);
+        (*self)->dev = priv->dev = g_strdup(dev);
+        (*self)->key = priv->key = g_strdup(key);
+        (*self)->modem = priv->modem = g_strdup(modem);
+        (*self)->slot_index = slot_index;
+        (*self)->interface_version = iface_num;
+
+        priv->remote = remote;
+        priv->client = gbinder_client_new2
+            (remote, radio_ifaces, G_N_ELEMENTS(radio_ifaces));
+        priv->indication = gbinder_servicemanager_new_local_object2
+            (sm, indication_ifaces, radio_instance_indication, (*self));
+        priv->response = gbinder_servicemanager_new_local_object2
+            (sm, response_ifaces, radio_instance_response, (*self));
+        priv->death_id = gbinder_remote_object_add_death_handler
+            (remote, radio_instance_died, (*self));
+
+        /* IRadio::setResponseFunctions */
+        req = gbinder_client_new_request2(priv->client, RADIO_REQ_SET_RESPONSE_FUNCTIONS);
+        gbinder_local_request_init_writer(req, &writer);
+        gbinder_writer_append_local_object(&writer, priv->response);
+        gbinder_writer_append_local_object(&writer, priv->indication);
+        reply = gbinder_client_transact_sync_reply(priv->client,
+            RADIO_REQ_SET_RESPONSE_FUNCTIONS, req, &status);
+        GVERBOSE_("setResponseFunctions %s status %d", slot, status);
+        gbinder_local_request_unref(req);
+        gbinder_remote_reply_unref(reply);
+
+        GDEBUG("Instance '%s'", slot);
+
+        /*
+         * Don't destroy GBinderServiceManager right away in case if we
+         * have another slot to initialize.
+         */
+        gutil_idle_pool_add_object(priv->idle, g_object_ref(sm));
+    }
+    g_free(fqname);
+    g_free(iface);
+}
+
+static
 RadioInstance*
 radio_instance_create(
     const char* dev,
@@ -333,61 +436,12 @@ radio_instance_create(
     GBinderServiceManager* sm = gbinder_servicemanager_new(dev);
 
     if (sm) {
-        int status = 0;
-        const char* iface = RADIO_1_0;
-        char* fqname = g_strconcat(iface, "/", slot, NULL);
-        GBinderRemoteObject* remote = gbinder_servicemanager_get_service_sync
-            (sm, fqname, &status);
-
-        if (remote) {
-            RadioInstancePriv* priv;
-            GBinderLocalRequest* req;
-            GBinderRemoteReply* reply;
-            GBinderWriter writer;
-
-            GINFO("Connected to %s", fqname);
-            /* get_service returns auto-released reference,
-             * we need to add a reference of our own */
-            gbinder_remote_object_ref(remote);
-
-            self = g_object_new(RADIO_TYPE_INSTANCE, NULL);
-            priv = self->priv;
-            self->slot = priv->slot = g_strdup(slot);
-            self->dev = priv->dev = g_strdup(dev);
-            self->key = priv->key = g_strdup(key);
-            self->modem = priv->modem = g_strdup(modem);
-            self->slot_index = slot_index;
-
-            priv->remote = remote;
-            priv->client = gbinder_client_new(remote, iface);
-            priv->indication = gbinder_servicemanager_new_local_object
-                (sm, RADIO_INDICATION_1_0, radio_instance_indication, self);
-            priv->response = gbinder_servicemanager_new_local_object
-                (sm, RADIO_RESPONSE_1_0, radio_instance_response, self);
-            priv->death_id = gbinder_remote_object_add_death_handler
-                (remote, radio_instance_died, self);
-
-            /* IRadio::setResponseFunctions */
-            req = gbinder_client_new_request(priv->client);
-            gbinder_local_request_init_writer(req, &writer);
-            gbinder_writer_append_local_object(&writer, priv->response);
-            gbinder_writer_append_local_object(&writer, priv->indication);
-            reply = gbinder_client_transact_sync_reply(priv->client,
-                RADIO_REQ_SET_RESPONSE_FUNCTIONS, req, &status);
-            GVERBOSE_("setResponseFunctions %s status %d", slot, status);
-            gbinder_local_request_unref(req);
-            gbinder_remote_reply_unref(reply);
-
-            GDEBUG("Instance '%s'", slot);
-
-            /*
-             * Don't destroy GBinderServiceManager right away in case if we
-             * have another slot to initialize.
-             */
-            gutil_idle_pool_add_object(priv->idle, g_object_ref(sm));
+        int i = (RIL_BINDER_INTERFACE_COUNT - 1);
+        for (; (i >= 0 && !self); --i) {
+            radio_instance_connect_remote
+                (dev, slot, key, modem, slot_index, sm, &self, i);
         }
         gbinder_servicemanager_unref(sm);
-        g_free(fqname);
     }
     return self;
 }
@@ -611,7 +665,7 @@ radio_instance_new_request(
     RADIO_REQ code)
 {
     if (G_LIKELY(self)) {
-        return gbinder_client_new_request(self->priv->client);
+        return gbinder_client_new_request2(self->priv->client, code);
     }
     return NULL;
 }
@@ -743,6 +797,16 @@ radio_instance_remove_handlers(
     int count)
 {
     gutil_disconnect_handlers(self, ids, count);
+}
+
+RIL_BINDER_INTERFACE
+radio_instance_get_interface_version(
+    RadioInstance* self)
+{
+    if (G_LIKELY(self)) {
+        return self->interface_version;
+    }
+    return 0;
 }
 
 /*==========================================================================*
