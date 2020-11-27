@@ -1,3 +1,9 @@
+libgbinder-radio (1.0.11+ubports1) xenial; urgency=medium
+
+  * Merge upstream changes
+
+ -- Alfred Neumayer <dev.beidl@gmail.com>  Fri, 27 Nov 2020 23:30:46 +0100
+
 libgbinder-radio (1.0.11) unstable; urgency=medium
 
   * Make library executable on RPM based systems
