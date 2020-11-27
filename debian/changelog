@@ -1,3 +1,9 @@
+libgbinder-radio (1.0.11+ubports2) xenial; urgency=medium
+
+  * Merge testing branch 'jb50597'
+
+ -- Alfred Neumayer <dev.beidl@gmail.com>  Sat, 28 Nov 2020 00:02:12 +0100
+
 libgbinder-radio (1.0.11+ubports1) xenial; urgency=medium
 
   * Merge upstream changes
