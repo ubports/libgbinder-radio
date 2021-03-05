@@ -1,3 +1,9 @@
+libgbinder-radio (1.2.2+0ubports1) xenial; urgency=medium
+
+  * Import v1.2.2 to ubports
+
+ -- Marius Gripsgard <marius@ubports.com>  Sat, 06 Mar 2021 00:36:32 +0100
+
 libgbinder-radio (1.2.2) unstable; urgency=medium
 
   * Added radio_instance_get_with_version()
